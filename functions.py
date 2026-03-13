@@ -16,19 +16,6 @@ WRITE_API_URL = st.secrets["write_api_url"]
 def load_products():
     return pd.read_csv(PRODUCTS_CSV_URL)
 
-#  LOAD ORDERS
-def load_orders():
-    try:
-        df = pd.read_csv(ORDERS_CSV_URL)
-
-        if "products" not in df.columns:
-            df["products"] = ""
-
-        return df
-
-    except:
-        return pd.DataFrame(columns=["order_id", "office", "products"])
-
 # SEND ORDERS TO GOOGLE APPS SCRIPT
 def send_order(order: dict):
     """Send order to Google Apps Script"""
@@ -47,6 +34,19 @@ def send_order(order: dict):
     except Exception as e:
         st.error(f"Failed to send order: {e}")
 
+#  LOAD ORDERS
+def load_orders():
+    try:
+        df = pd.read_csv(ORDERS_CSV_URL)
+
+        if "products" not in df.columns:
+            df["products"] = ""
+
+        return df
+
+    except:
+        return pd.DataFrame(columns=["order_id", "office", "products"])
+
 # REFRESH ORDERS  
 def refresh_orders():
 
@@ -64,14 +64,18 @@ def refresh_orders():
     return changed
 
 # DELETE ORDERS AFTER "COMPLETE"
-def delete_order_background(order_id):
+def delete_order_async(order_id):
+    """Remove order from UI instantly and delete in background"""
+    # Hide order instantly in UI
+    st.session_state.hidden_orders.add(order_id)
 
+    # Send network request in background
     def worker():
         try:
             requests.post(
                 WRITE_API_URL,
                 data={"action": "delete", "order_id": order_id},
-                timeout=2
+                timeout=10
             )
         except:
             pass

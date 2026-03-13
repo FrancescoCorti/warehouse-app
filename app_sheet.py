@@ -115,60 +115,130 @@ if st.session_state.logged_in:
         pass
 
     # ---------------------------
-    # OFFICE INTERFACE
+    # PRODUCT REQUEST INTERFACE
     # ---------------------------
 
     if mode == "Product Request":
+
         st.header("Request Dashboard")
 
+        # ---------------------------
+        # SESSION STATE
+        # ---------------------------
         if "cart" not in st.session_state:
             st.session_state.cart = []
 
-        kid = st.selectbox("Adult/Kid", sorted(products["kid"].unique()))
+        # ---------------------------
+        # PRODUCT FILTER
+        # ---------------------------
+        kid = st.selectbox("Adult / Kid", sorted(products["kid"].unique()))
 
-        # PRODUCT SELECTION
-        if kid == '-':
-            category = st.selectbox("Category", sorted(products["category"].unique()))
-            name = st.selectbox("Product", sorted(products[products["category"] == category]["name"].unique()))
-            colour = st.selectbox("Colour", sorted(products[(products["name"] == name) & (products["category"] == category)]["colour"].unique()))
-            size = st.selectbox("Size", products[(products["name"] == name) & (products["colour"] == colour) & (products["category"] == category)]["size"].unique())
-        else:
-            category = st.selectbox("Category", sorted(products[products["kid"] == kid]["category"].unique()))
-            name = st.selectbox("Product", sorted(products[(products["category"] == category) & (products["kid"] == kid)]["name"].unique()))
-            colour = st.selectbox("Colour", sorted(products[(products["name"] == name) & (products["category"] == category) & (products["kid"] == kid)]["colour"].unique()))
-            size = st.selectbox("Size", products[(products["name"] == name) & (products["colour"] == colour) & (products["category"] == category) & (products["kid"] == kid)]["size"].unique())
+        filtered_products = products.copy()
+
+        if kid != "-":
+            filtered_products = filtered_products[filtered_products["kid"] == kid]
+
+        # CATEGORY
+        category = st.selectbox(
+            "Category",
+            sorted(filtered_products["category"].unique())
+        )
+
+        filtered_products = filtered_products[filtered_products["category"] == category]
+
+        # PRODUCT
+        name = st.selectbox(
+            "Product",
+            sorted(filtered_products["name"].unique())
+        )
+
+        filtered_products = filtered_products[filtered_products["name"] == name]
+
+        # COLOUR
+        colour = st.selectbox(
+            "Colour",
+            sorted(filtered_products["colour"].unique())
+        )
+
+        filtered_products = filtered_products[filtered_products["colour"] == colour]
+
+        # SIZE
+        size = st.selectbox(
+            "Size",
+            sorted(filtered_products["size"].unique())
+        )
 
         quantity = st.number_input("Quantity", min_value=1, step=1)
 
+        st.divider()
+
+        # ---------------------------
         # ADD TO CART
+        # ---------------------------
         if st.button("Add to Cart"):
-            st.session_state.cart.append({
+
+            item = {
                 "name": name,
                 "colour": colour,
                 "size": size,
                 "quantity": quantity
-            })
-            st.success(f"Added {quantity} x {name} ({colour}, {size}) to cart")
+            }
 
+            st.session_state.cart.append(item)
+
+            st.success(f"Added {quantity} × {name} ({colour}, {size})")
+
+        # ---------------------------
+        # CART DISPLAY
+        # ---------------------------
         if st.session_state.cart:
-            st.subheader("Current Order")
-            st.table(pd.DataFrame(st.session_state.cart))
 
+            st.subheader("Current Order")
+
+            cart_df = pd.DataFrame(st.session_state.cart)
+
+            for i, row in cart_df.iterrows():
+
+                col1, col2, col3, col4, col5 = st.columns([3,2,2,2,1])
+
+                col1.write(row["name"])
+                col2.write(row["colour"])
+                col3.write(row["size"])
+                col4.write(row["quantity"])
+
+                if col5.button("🗑️", key=f"remove_{i}"):
+                    st.session_state.cart.pop(i)
+                    st.rerun()
+
+        else:
+            st.info("Cart is empty")
+
+        st.divider()
+
+        # ---------------------------
+        # OFFICE INPUT
+        # ---------------------------
         office = st.text_input("Office Name")
 
-        # SUBMIT THE ORDER
+        # ---------------------------
+        # SEND ORDER
+        # ---------------------------
         if st.button("Send Order"):
-            
-            if len(st.session_state.cart) == 0 or not office.strip():
-                st.error("Add at least one product and fill in office name")
+
+            if not st.session_state.cart:
+                st.error("Add at least one product")
+
+            elif not office.strip():
+                st.error("Please enter office name")
+
             else:
+
                 orders = load_orders()
 
-                # ORDER ID GENERATION (TIME-BASED)
+                # ORDER ID
                 now = datetime.datetime.now()
-                new_id = int(now.strftime("%d%H%M%S") + f"{int(now.microsecond/1000):03d}")  # DDHHMMSSmmm
+                new_id = int(now.strftime("%d%H%M%S") + f"{int(now.microsecond/1000):03d}")
 
-                # UNIQUENESS CHECK
                 if not orders.empty and "order_id" in orders.columns:
                     while new_id in orders["order_id"].values:
                         now = datetime.datetime.now()
@@ -177,48 +247,42 @@ if st.session_state.logged_in:
                 new_order = {
                     "order_id": new_id,
                     "office": office.strip(),
-                    "products": st.session_state.cart
+                    "products": st.session_state.cart.copy()
                 }
 
                 send_order(new_order)
-                st.session_state.cart = []
+
+                # CLEAR CART
+                st.session_state.cart.clear()
+
+                st.success("Order sent successfully!")
+
                 st.rerun()
 
     # ------------------------------
     # WAREHOUSE INTERFACE
     # ------------------------------
-
-    # INITIALISE STATES
-    if "known_order_ids" not in st.session_state:
-        st.session_state.known_order_ids = set()
-    if "locally_deleted_orders" not in st.session_state:
-        st.session_state.locally_deleted_orders = set()
-
-
     if mode == "Warehouse":
+
+        if "hidden_orders" not in st.session_state:
+            st.session_state.hidden_orders = set()
+
+        if "known_order_ids" not in st.session_state:
+            st.session_state.known_order_ids = set()
 
         st.header("Incoming Orders")
 
+        # AUTO-REFRESH
         st_autorefresh(interval=10000, key="warehouse_refresh")
-        
+
         # LOAD ORDERS
         orders = load_orders()
 
-        """ debugging info
-        st.write("Orders dataframe:", orders)
-        st.write("Orders shape:", orders.shape)
-        st.write("Columns:", orders.columns)
-
+        # LOCALLY HIDE DELETED ORDERS
         if not orders.empty:
-            orders = orders[
-                ~orders["order_id"].isin(st.session_state.locally_deleted_orders)
-            ]
+            orders = orders[~orders["order_id"].isin(st.session_state.hidden_orders)]
 
-        st.write("Deleted orders:", st.session_state.locally_deleted_orders)
-        st.write("Orders before filter:", len(orders))
-        """
-        
-        # DETECT NEW ORDERS - NOTIFICATION SOUND
+        # NEW ORDERS + NOTIFICATION
         current_ids = set(orders["order_id"]) if not orders.empty else set()
 
         new_orders = current_ids - st.session_state.known_order_ids
@@ -228,65 +292,51 @@ if st.session_state.logged_in:
 
         st.session_state.known_order_ids = current_ids
 
-        
         # DISPLAY ORDERS
-        orders_container = st.container()
+        if orders.empty:
+            st.info("No incoming orders")
+        else:
+            orders = orders.sort_values(by="order_id")
 
-        with orders_container:
+            for row in orders.to_dict("records"):
 
-            if not orders.empty:
+                with st.container(border=True):
+                    col_left, col_right = st.columns([3,1])
 
-                orders = orders.sort_values(by="order_id")
+                    # HEADER
+                    with col_left:
+                        st.subheader(f"Order #{row['order_id']}")
 
-                for _, row in orders.iterrows():
+                    with col_right:
+                        st.markdown(
+                            f"<h3 style='text-align:right; margin-top:0'>{row['office']}</h3>",
+                            unsafe_allow_html=True
+                        )
 
-                    with st.container(border=True):
+                    st.divider()
 
-                        col_left, col_right = st.columns([3,1])
+                    # PRODUCTS
+                    products = format_products(row["products"])
 
-                        # FORMATTING ORDER BOX
-                        with col_left:
-                            st.subheader(f"Order #{row['order_id']}")
+                    for p in products:
+                        st.markdown(
+                            f"<div style='font-size:20px; font-weight:500'>{p}</div>",
+                            unsafe_allow_html=True
+                        )
 
-                        with col_right:
-                            st.markdown(
-                                f"<h3 style='text-align:right; margin-top:0'>{row['office']}</h3>",
-                                unsafe_allow_html=True
-                            )
+                    st.write("")
 
-                        st.divider()
+                    # COMPLETE BUTTON AND DELETE
+                    col1, col2 = st.columns([3,1])
 
-                        products = format_products(row["products"])
-
-                        for p in products:
-                            st.markdown(
-                                f"<div style='font-size:20px; font-weight:500'>{p}</div>",
-                                unsafe_allow_html=True
-                            )
-
-                        st.write("")
-
-                        col1, col2 = st.columns([3,1])
-
-                        # COMPLETE BUTTON AND TRIGGER DELETION
-                        with col2:
-
-                            if st.button(
-                                "✅ Complete",
-                                key=f"complete_{row['order_id']}",
-                                use_container_width=True
-                            ):
-
-                                # INSTAT UI REMOVAL
-                                st.session_state.locally_deleted_orders.add(row["order_id"])
-
-                                # BACKGROUND DELETION
-                                delete_order_background(row["order_id"])
-
-                                st.rerun()
-
-            else:
-                st.info("No incoming orders")
+                    with col2:
+                        if st.button(
+                            "✔️ Complete",
+                            key=f"complete_{row['order_id']}",
+                            use_container_width=True
+                        ):
+                            delete_order_async(row["order_id"])
+                            st.rerun()
                 
 
 
@@ -301,8 +351,8 @@ if st.session_state.logged_in:
 
         - The "Product Request" page allows users to create orders by selecting
           products and quantities, and submitting them to the warehouse.
-        - The "Warehouse" page displays incoming orders in real-time. Warehouse
-          staff can mark orders as complete, which removes them from the list.
+        - The "Warehouse" page displays incoming orders in real-time. Users can
+          mark orders as complete, which removes them from the list.
 
         **Technical details:**
 
@@ -313,7 +363,8 @@ if st.session_state.logged_in:
         **Note:** Product list is updated to February 2026, and new products are
         integrated by modifying the relative sheet.
                     
-        For any updates' request, issues, or suggestions, please fill the form below:
+        For any updates' request, issues, or suggestions, please fill the form
+        below:
         """)
 
         # FEEDBACK FORM
