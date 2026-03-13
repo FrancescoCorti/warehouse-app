@@ -1,0 +1,8 @@
+/.venv_warehouse
+
+/datasets
+
+/access_key
+
+.streamlit/secrets.toml
+
