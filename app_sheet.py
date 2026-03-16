@@ -83,8 +83,8 @@ if st.session_state.logged_in:
 
     with st.sidebar:
         st.logo(LOGO_LONG, icon_image = LOGO_SHORT, size = "large")
-        selected = option_menu("Menu", ["Product Request", 'Warehouse',"Info"], 
-            icons=['cart-plus', 'box', 'info-circle'], menu_icon="menu-up", default_index=0)
+        selected = option_menu("Menu", ["Product Request", 'Warehouse',"---","Info"], 
+            icons=['cart-plus', 'box', '', 'info-circle'], menu_icon="menu-up", default_index=0)
         
         # Update session state when selection changes
         if st.session_state.mode != selected:
