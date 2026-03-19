@@ -354,11 +354,6 @@ if st.session_state.logged_in:
           warehouse.
         - Use _**Orders**_ to display incoming orders in real-time.
           Mark orders as complete to remove them from the list.
-        - Use _**Add New Product**_ to add new products to the
-          system, which will be available for future orders. In case of a bulk
-          upload of new products, the user is suggested to operate directly on
-          the Google Sheet database.
-
 
         **Note:** Product list is updated to February 2026.
                     
@@ -376,9 +371,10 @@ if st.session_state.logged_in:
         )
 
         sentence = set_form.text_area(
-            "Your feedback",
+            "",
             placeholder="Write your message here...",
-            height=200
+            height=200,
+            label_visibility="collapsed"
         )
 
         # SUBMIT TO EMAIL   
