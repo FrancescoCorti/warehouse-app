@@ -349,21 +349,20 @@ if st.session_state.logged_in:
         st.markdown("""
         **How it works:**
 
-        - The "Product Request" page allows users to create orders by selecting
-          products and quantities, and submitting them to the warehouse.
-        - The "Warehouse" page displays incoming orders in real-time. Users can
-          mark orders as complete, which removes them from the list.
+        - Use _**Product Request**_ to create orders by
+          selecting products and quantities, and to submit them to the
+          warehouse.
+        - Use _**Orders**_ to display incoming orders in real-time.
+          Mark orders as complete to remove them from the list.
+        - Use _**Add New Product**_ to add new products to the
+          system, which will be available for future orders. In case of a bulk
+          upload of new products, the user is suggested to operate directly on
+          the Google Sheet database.
 
-        **Technical details:**
 
-        - Orders are stored in a Google Sheet, which acts as a database.
-        - The app uses Streamlit's session state to manage user interactions and
-          real-time updates.
-
-        **Note:** Product list is updated to February 2026, and new products are
-        integrated by modifying the relative sheet.
+        **Note:** Product list is updated to February 2026.
                     
-        For any updates' request, issues, or suggestions, please fill the form
+        For any updates' request, issues, or suggestions, please use the form
         below:
         """)
 
